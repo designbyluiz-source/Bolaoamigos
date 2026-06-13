@@ -184,20 +184,23 @@
   }
   function jogosDoBrasil() { return jogosEfetivos().filter((j) => j.casa === D.TIME_BRASIL || j.fora === D.TIME_BRASIL); }
 
-  // ----- horário de início / trava -----
+  // ----- horário de início / trava (exibido no horário de Brasília) -----
+  const TZ = "America/Sao_Paulo";
   function inicioISO(j){ return j.inicio || (j.data ? `${j.data}T16:00:00-03:00` : null); }
   function kickoffMs(j){ const i = inicioISO(j); return i ? Date.parse(i) : Infinity; }
   function jogoComecou(j){ return Date.now() >= kickoffMs(j); }
-  // "DD/MM · HH:MM" a partir do horário guardado (Brasília)
-  function fmtDataHora(j){
-    const i = inicioISO(j); if(!i) return fmtData(j.data);
-    const [date, time] = i.slice(0,16).split("T");
-    const [y,m,d] = date.split("-");
-    return `${d}/${m} · ${time}`;
+  function partesBR(j){
+    const i = inicioISO(j); const dt = i ? new Date(i) : null;
+    if (!dt || isNaN(dt)) return null;
+    const p = new Intl.DateTimeFormat("sv-SE",{ timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(dt);
+    const g = (t)=> (p.find(x=>x.type===t)||{}).value || "";
+    return { y:g("year"), mo:g("month"), d:g("day"), h:g("hour"), mi:g("minute") };
   }
-  function fmtHora(j){ const i = inicioISO(j); return i ? i.slice(11,16) : ""; }
-  // valor para <input type="datetime-local">
-  function inicioLocalInput(j){ const i = inicioISO(j); return i ? i.slice(0,16) : ""; }
+  function fmtDataHora(j){ const b = partesBR(j); return b ? `${b.d}/${b.mo} · ${b.h}:${b.mi}` : fmtData(j.data); }
+  function fmtHora(j){ const b = partesBR(j); return b ? `${b.h}:${b.mi}` : ""; }
+  function diaBR(j){ const b = partesBR(j); return b ? `${b.y}-${b.mo}-${b.d}` : (j.data||""); }
+  // valor para <input type="datetime-local"> (horário de Brasília)
+  function inicioLocalInput(j){ const b = partesBR(j); return b ? `${b.y}-${b.mo}-${b.d}T${b.h}:${b.mi}` : ""; }
 
   /* ============================================================
      PONTUAÇÃO
@@ -571,15 +574,15 @@
   function viewJogos(tipo) {
     const isBrasil = tipo === "brasil";
     let jogos = isBrasil ? jogosDoBrasil() : jogosEfetivos();
-    jogos = jogos.slice().sort((a,b)=>(a.data||"").localeCompare(b.data||"")||a.id.localeCompare(b.id));
+    jogos = jogos.slice().sort((a,b)=> kickoffMs(a)-kickoffMs(b) || a.id.localeCompare(b.id));
     const m = D.MODULOS[tipo];
     const stats = calcular(State.meuPalpite);
     const pontos = isBrasil ? stats.brasil : stats.completo;
 
-    const dias = [...new Set(jogos.map((j)=>j.data))].sort();
+    const dias = [...new Set(jogos.map((j)=>diaBR(j)))].sort();
     const filtro = State._filtroDia || "todos";
     let lista = jogos;
-    if (!isBrasil && filtro!=="todos") lista = jogos.filter((j)=>j.data===filtro);
+    if (!isBrasil && filtro!=="todos") lista = jogos.filter((j)=>diaBR(j)===filtro);
 
     const tabs = isBrasil ? "" : `
       <div class="tabs">
@@ -704,7 +707,7 @@
   function viewAdmin() {
     if (!State.auth.is_admin) { State.view="home"; return viewHome(); }
     const P = pontuacao();
-    let jogos = jogosEfetivos().slice().sort((a,b)=>(a.data||"").localeCompare(b.data||"")||a.id.localeCompare(b.id));
+    let jogos = jogosEfetivos().slice().sort((a,b)=> kickoffMs(a)-kickoffMs(b) || a.id.localeCompare(b.id));
     const real = resultadosReais();
 
     root().innerHTML = topbar() + `
