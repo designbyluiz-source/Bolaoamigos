@@ -16,14 +16,16 @@ App de bolão entre amigos (PWA, instala na tela inicial do iPhone). Cada pessoa
 
 Dá pra mudar esses valores no código (`data.js`, `PONTUACAO_PADRAO`).
 
-### Dois modos de palpite por jogo
+### Palpite por jogo (dois campos)
 
-Em cada jogo a pessoa escolhe como quer palpitar:
+Em cada jogo a pessoa preenche **os dois**, obrigatórios:
 
-- **Placar exato** — digita o placar. Acertou em cheio = 5 pts; acertou só quem venceu = 2 pts.
-- **Só vencedor** — escolhe vitória de um lado ou empate. Acertou = 2 pts (não vale o bônus do placar exato).
+- **Quem vence** — vitória de um lado ou empate → +2 se acertar.
+- **Placar exato** — o placar do jogo → +5 se acertar.
 
-**Trava no apito:** cada jogo tem um **horário de início**. Você pode salvar e **editar** seu palpite à vontade até esse horário; quando o jogo começa, trava sozinho e não dá mais para mexer. O palpite de campeão pode ser trocado até o admin definir o campeão oficial.
+Os dois são contados de forma independente (dá para somar 7 num jogo). Não dá para salvar com algum dos dois em branco.
+
+**Trava no apito:** cada jogo tem um **horário de início**. Você pode salvar e **editar** seu palpite à vontade até esse horário; quando o jogo começa, trava sozinho. Já o **palpite de campeão trava ao confirmar** — depois não pode ser alterado.
 
 Os horários vêm com valores padrão (horário de Brasília) e são **editáveis no Painel Admin**, jogo a jogo — ajuste para os horários oficiais.
 

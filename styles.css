@@ -175,7 +175,13 @@ label{display:block;font-size:13px;color:var(--green-dd);margin:0 0 7px;font-wei
 .tag.zero{background:#ffe9ec;color:#c23a4c;border:1px solid #f6c6cd}
 .tag.aberto{background:var(--bg);color:var(--muted);border:1px solid var(--line2)}
 
-/* seletor de modo de palpite */
+/* blocos de palpite (quem vence + placar) */
+.bet-block{margin-bottom:14px}
+.bet-block:last-of-type{margin-bottom:0}
+.bet-q{font-size:12px;font-weight:800;color:var(--green-dd);margin:0 2px 8px;text-transform:uppercase;letter-spacing:.3px}
+.tags-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+
+/* seletor de modo de palpite (legado) */
 .bet-seg{margin-bottom:14px}
 .seg{display:flex;background:var(--bg);border:1px solid var(--line2);border-radius:13px;padding:4px;gap:4px}
 .seg-btn{flex:1;border:0;background:transparent;color:var(--muted);font-weight:800;font-size:13px;padding:10px;border-radius:10px;cursor:pointer}

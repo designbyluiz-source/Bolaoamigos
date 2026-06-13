@@ -1,5 +1,5 @@
 /* Service Worker — Bolão dos Babes (PWA) */
-const CACHE = "babes-v6";
+const CACHE = "babes-v7";
 const ASSETS = [
   "./",
   "./index.html",

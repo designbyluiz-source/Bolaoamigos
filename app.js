@@ -206,20 +206,20 @@
      PONTUAÇÃO
      ============================================================ */
   function sinal(a, b) { return a > b ? 1 : a < b ? -1 : 0; }
-  // pj pode ser { tipo:'placar', c, f } ou { tipo:'vencedor', w:'c'|'e'|'f' }
+  // palpite por jogo: { w:'c'|'e'|'f', c, f } — os dois são pontuados:
+  // vencedor (+2) e placar exato (+5), independentes.
   function pontosJogo(pj, real, P) {
-    if (!pj || !real || real.c == null || real.f == null) return { pts: 0, tag: "aberto" };
+    const out = { pts: 0, exato: false, venc: false, tem: !!(pj && (pj.w != null || pj.c != null)), temReal: !!(real && real.c != null && real.f != null) };
+    if (!pj || !out.temReal) return out;
     const ro = sinal(+real.c, +real.f);
-    if (pj.tipo === "vencedor") {
-      if (pj.w == null) return { pts: 0, tag: "sem" };
+    if (pj.w != null) {
       const po = pj.w === "c" ? 1 : pj.w === "f" ? -1 : 0;
-      return po === ro ? { pts: P.vencedor, tag: "parcial" } : { pts: 0, tag: "zero" };
+      if (po === ro) { out.pts += P.vencedor; out.venc = true; }
     }
-    if (pj.c == null || pj.f == null) return { pts: 0, tag: "sem" };
-    const pc = +pj.c, pf = +pj.f;
-    if (pc === +real.c && pf === +real.f) return { pts: P.placarExato, tag: "exato" };
-    if (sinal(pc, pf) === ro) return { pts: P.vencedor, tag: "parcial" };
-    return { pts: 0, tag: "zero" };
+    if (pj.c != null && pj.f != null && +pj.c === +real.c && +pj.f === +real.f) {
+      out.pts += P.placarExato; out.exato = true;
+    }
+    return out;
   }
   function calcular(palpite) {
     const P = pontuacao();
@@ -232,8 +232,8 @@
       const r = pontosJogo(pj[j.id], real[j.id], P);
       completo += r.pts;
       if (brasilIds.has(j.id)) brasil += r.pts;
-      if (r.tag === "exato") exatos++;
-      if (r.tag === "parcial") parciais++;
+      if (r.exato) exatos++;
+      if (r.venc) parciais++;
     });
     let campeao = 0;
     if (State.resultados.campeao && palpite && palpite.campeao === State.resultados.campeao) campeao = P.campeao;
@@ -386,17 +386,11 @@
   function teamCol(name){ return `<div class="team">${flagHTML(name,"lg")}<span class="nm">${esc(name)}</span></div>`; }
   const jogoById = {};
   function getDraft(j, pj){
-    if (!State._draft[j.id]) State._draft[j.id] = { tipo: pj.tipo || "placar", c: pj.c ?? "", f: pj.f ?? "", w: pj.w ?? null };
+    if (!State._draft[j.id]) State._draft[j.id] = { c: pj.c ?? "", f: pj.f ?? "", w: pj.w ?? null };
     return State._draft[j.id];
   }
-  function pickLabel(j, w){ return w==="e" ? "Empate" : w==="c" ? "Vitória: "+j.casa : "Vitória: "+j.fora; }
-
-  // conteúdo interno do card (permite re-render isolado ao trocar de modo)
-  function midSaved(j, pj){
-    if (!pj || !pj.tipo) return `<div class="vs"><span class="score-show">–</span></div>`;
-    if (pj.tipo === "vencedor") return `<div class="vs"><span class="pick-w">${pj.w==="e"?"=":icon("check")}</span></div>`;
-    return `<div class="vs"><span class="score-show">${pj.c ?? "–"}</span><span class="x">×</span><span class="score-show">${pj.f ?? "–"}</span></div>`;
-  }
+  function pickLabel(j, w){ return w==="e" ? "Empate" : w==="c" ? "Vitória do "+j.casa : "Vitória do "+j.fora; }
+  function midScore(pj){ return `<div class="vs"><span class="score-show">${pj.c ?? "–"}</span><span class="x">×</span><span class="score-show">${pj.f ?? "–"}</span></div>`; }
 
   function cardBody(j){
     const real = resultadosReais()[j.id] || {};
@@ -404,7 +398,7 @@
     const comecou = jogoComecou(j);
     const bloqueado = temReal || comecou;
     const pj = (State.meuPalpite.jogos || {})[j.id] || {};
-    const confirmado = !!pj.tipo;
+    const confirmado = (pj.w != null && pj.c != null);   // palpite completo salvo
     const editing = !!State._editing[j.id];
     const P = pontuacao();
 
@@ -414,51 +408,45 @@
         <span class="when">${icon("clock")} ${fmtDataHora(j)}</span>
       </div>`;
 
-    function resultLine(){
+    function resumoSalvo(){
+      const teams = `<div class="teams">${teamCol(j.casa)}${midScore(pj)}${teamCol(j.fora)}</div>`;
+      const lbl = pj.w!=null ? `<div class="picked">Quem vence: <b>${pickLabel(j,pj.w)}</b></div>` : "";
+      return teams + lbl;
+    }
+    function tagsResultado(){
       const r = pontosJogo(pj, real, P);
-      const map = {
-        exato:`<span class="tag exato">${icon("check")} Placar exato +${P.placarExato}</span>`,
-        parcial:`<span class="tag parcial">${icon("check")} Vencedor +${P.vencedor}</span>`,
-        zero:`<span class="tag zero">${icon("x")} 0 pontos</span>`,
-        sem:`<span class="tag aberto">Sem palpite</span>`,
-      };
-      return `<div class="result-line">Resultado <span class="real">${real.c} × ${real.f}</span> ${map[r.tag]||""}</div>`;
+      let tags = "";
+      if (pj.c!=null) tags += r.exato ? `<span class="tag exato">${icon("check")} Placar +${P.placarExato}</span>` : `<span class="tag zero">${icon("x")} Placar</span>`;
+      if (pj.w!=null) tags += r.venc ? `<span class="tag parcial">${icon("check")} Vencedor +${P.vencedor}</span>` : `<span class="tag zero">${icon("x")} Vencedor</span>`;
+      if (!tags) tags = `<span class="tag aberto">Sem palpite</span>`;
+      return `<div class="result-line">Resultado <span class="real">${real.c} × ${real.f}</span></div><div class="tags-row">${tags}</div>`;
     }
 
     // 1) bloqueado: jogo começou ou já tem resultado → só leitura
     if (bloqueado){
-      const teams = `<div class="teams">${teamCol(j.casa)}${midSaved(j,pj)}${teamCol(j.fora)}</div>`;
-      const lbl = (confirmado && pj.tipo==="vencedor") ? `<div class="picked">Seu palpite: ${pickLabel(j,pj.w)}</div>` : "";
-      const line = temReal ? resultLine() : `<div class="result-line">${icon("lock")} Jogo iniciado — palpites fechados</div>`;
-      return head + teams + lbl + line;
+      return head + resumoSalvo() + (temReal ? tagsResultado() : `<div class="result-line">${icon("lock")} Jogo iniciado — palpites fechados</div>`);
     }
 
     // 2) já confirmado e não está editando → resumo + botão Editar
     if (confirmado && !editing){
-      const teams = `<div class="teams">${teamCol(j.casa)}${midSaved(j,pj)}${teamCol(j.fora)}</div>`;
-      const lbl = (pj.tipo==="vencedor") ? `<div class="picked">${icon("check")} ${pickLabel(j,pj.w)}</div>` : `<div class="picked">${icon("check")} Palpite salvo</div>`;
-      const note = `<div class="result-line">Editável até o início (${fmtHora(j)})</div>`;
-      return head + teams + lbl + note + `<button class="btn secondary edit-btn" data-edit>${icon("edit")} Editar palpite</button>`;
+      return head + resumoSalvo()
+        + `<div class="result-line">${icon("check")} Palpite salvo · editável até ${fmtHora(j)}</div>`
+        + `<button class="btn secondary edit-btn" data-edit>${icon("edit")} Editar palpite</button>`;
     }
 
-    // 3) interativo (novo palpite ou em edição)
+    // 3) interativo (novo palpite ou em edição) — os DOIS campos, obrigatórios
     const d = getDraft(j, pj);
-    const seg = `
-      <div class="seg bet-seg">
-        <button class="seg-btn ${d.tipo==='placar'?'on':''}" data-bet="placar">Placar exato</button>
-        <button class="seg-btn ${d.tipo==='vencedor'?'on':''}" data-bet="vencedor">Só vencedor</button>
-      </div>`;
-
-    let body;
-    if (d.tipo === "vencedor"){
-      body = `
+    const body = `
+      <div class="bet-block">
+        <div class="bet-q">Quem vence?</div>
         <div class="win-opts">
           <button class="win-opt ${d.w==='c'?'on':''}" data-w="c">${flagHTML(j.casa)}<span>${esc(j.casa)}</span></button>
           <button class="win-opt ${d.w==='e'?'on':''}" data-w="e"><span class="emp">=</span><span>Empate</span></button>
           <button class="win-opt ${d.w==='f'?'on':''}" data-w="f">${flagHTML(j.fora)}<span>${esc(j.fora)}</span></button>
-        </div>`;
-    } else {
-      body = `
+        </div>
+      </div>
+      <div class="bet-block">
+        <div class="bet-q">Placar exato</div>
         <div class="teams">
           ${teamCol(j.casa)}
           <div class="vs">
@@ -467,10 +455,10 @@
             <input class="score-in" inputmode="numeric" data-side="f" value="${d.f}" placeholder="–" />
           </div>
           ${teamCol(j.fora)}
-        </div>`;
-    }
+        </div>
+      </div>`;
     const txt = confirmado ? "Salvar alteração" : "Confirmar palpite";
-    return head + seg + body + `<button class="btn confirm-btn" data-confirm>${icon("check")} ${txt}</button>`;
+    return head + body + `<button class="btn confirm-btn" data-confirm>${icon("check")} ${txt}</button>`;
   }
 
   function matchCard(j){
@@ -485,23 +473,13 @@
     const j = jogoById[card.dataset.match];
     if (!j) return;
     const d = State._draft[j.id];
-    // troca de modo
-    card.querySelectorAll("[data-bet]").forEach((b)=> b.onclick=()=>{
-      // guarda o que já foi digitado antes de trocar
-      const cEl = card.querySelector('[data-side="c"]'); const fEl = card.querySelector('[data-side="f"]');
-      if (cEl) d.c = cEl.value; if (fEl) d.f = fEl.value;
-      d.tipo = b.dataset.bet;
-      card.innerHTML = cardBody(j); wireCard(card);
-    });
-    // escolha de vencedor
+    const syncScore = ()=>{ if(!d) return; const cEl=card.querySelector('[data-side="c"]'), fEl=card.querySelector('[data-side="f"]'); if(cEl) d.c=cEl.value; if(fEl) d.f=fEl.value; };
+    // escolha de quem vence
     card.querySelectorAll("[data-w]").forEach((b)=> b.onclick=()=>{
-      d.w = b.dataset.w; card.innerHTML = cardBody(j); wireCard(card);
+      syncScore(); d.w = b.dataset.w; card.innerHTML = cardBody(j); wireCard(card);
     });
     // sincroniza placar digitado no rascunho
-    card.querySelectorAll(".score-in").forEach((inp)=> inp.addEventListener("input",()=>{
-      const cEl=card.querySelector('[data-side="c"]'), fEl=card.querySelector('[data-side="f"]');
-      d.c = cEl ? cEl.value : d.c; d.f = fEl ? fEl.value : d.f;
-    }));
+    card.querySelectorAll(".score-in").forEach((inp)=> inp.addEventListener("input", syncScore));
     // editar (reabre o palpite já salvo)
     const eb = card.querySelector("[data-edit]");
     if (eb) eb.onclick = ()=>{
@@ -509,22 +487,17 @@
       State._editing[j.id] = true; delete State._draft[j.id];
       card.innerHTML = cardBody(j); wireCard(card);
     };
-    // confirmar / salvar
+    // confirmar / salvar (os DOIS campos são obrigatórios)
     const btn = card.querySelector("[data-confirm]");
     if (btn) btn.onclick = async ()=>{
       if (jogoComecou(j)) { toast("O jogo já começou — não dá mais para palpitar"); render(); return; }
-      let palpite;
-      if (d.tipo === "vencedor"){
-        if (!d.w) return toast("Escolha quem vence (ou empate)");
-        palpite = { tipo:"vencedor", w:d.w };
-      } else {
-        const cEl=card.querySelector('[data-side="c"]'), fEl=card.querySelector('[data-side="f"]');
-        if (cEl.value==="" || fEl.value==="") return toast("Preencha os dois placares");
-        const c=Math.max(0,Math.min(20,parseInt(cEl.value)||0)), f=Math.max(0,Math.min(20,parseInt(fEl.value)||0));
-        palpite = { tipo:"placar", c, f };
-      }
+      syncScore();
+      if (d.w == null) return toast("Escolha quem vence");
+      if (d.c === "" || d.f === "") return toast("Preencha o placar exato (os dois)");
+      const c = Math.max(0, Math.min(20, parseInt(d.c) || 0));
+      const f = Math.max(0, Math.min(20, parseInt(d.f) || 0));
       State.meuPalpite.jogos = State.meuPalpite.jogos || {};
-      State.meuPalpite.jogos[j.id] = palpite;
+      State.meuPalpite.jogos[j.id] = { w: d.w, c, f };
       delete State._draft[j.id];
       State._editing[j.id] = false;
       await Store.savePalpite(State.auth.username, { jogos: State.meuPalpite.jogos });
@@ -598,7 +571,7 @@
         <span><i class="dot ok"></i> Placar exato +${pontuacao().placarExato}</span>
         <span><i class="dot gold"></i> Vencedor +${pontuacao().vencedor}</span>
       </div>
-      <p class="hint" style="margin:0 2px 12px">Em cada jogo escolha <b>placar exato</b> ou <b>só o vencedor</b>. Dá para editar até o apito inicial.</p>
+      <p class="hint" style="margin:0 2px 12px">Em cada jogo palpite <b>quem vence</b> (+${pontuacao().vencedor}) e o <b>placar exato</b> (+${pontuacao().placarExato}). Dá para editar até o apito inicial.</p>
       ${tabs}
       ${lista.length ? lista.map(matchCard).join("") : `<div class="empty">Nenhum jogo aqui ainda.</div>`}
       <div class="spacer"></div>
@@ -617,14 +590,14 @@
   function viewCampeao() {
     const escolhido = State.meuPalpite.campeao;
     const oficial = State.resultados.campeao;
-    const travado = !!oficial;   // só trava quando o admin define o campeão oficial
+    const travado = !!escolhido || !!oficial;   // trava assim que você confirma seu palpite
     const temp = State._campTemp ?? escolhido;
     const P = pontuacao();
 
     let topo = "";
     if (oficial) topo = `<p>Campeão oficial: <b class="gold-t">${esc(oficial)}</b> ${escolhido===oficial?`${icon("check")} você acertou!`:''}</p>`;
-    else if (escolhido) topo = `<p>${icon("check")} Seu palpite: <b>${esc(escolhido)}</b> <span class="muted">(dá para trocar até definir o campeão)</span></p>`;
-    else topo = `<p class="muted">Toque numa seleção e confirme. Você pode trocar enquanto o campeão não for definido.</p>`;
+    else if (escolhido) topo = `<p>${icon("lock")} Seu palpite confirmado: <b>${esc(escolhido)}</b> <span class="muted">(não pode ser alterado)</span></p>`;
+    else topo = `<p class="muted">Toque numa seleção e confirme. Atenção: depois de confirmar <b>não dá para trocar</b>.</p>`;
 
     root().innerHTML = topbar() + `
       <div class="section-title">${icon("trophy")} ${D.MODULOS.campeao.nome}</div>
@@ -651,10 +624,11 @@
     const cc = document.getElementById("confCamp");
     if (cc) cc.onclick = async()=>{
       if (!State._campTemp) return;
+      if (!confirm(`Confirmar ${State._campTemp} como seu campeão? Não dá para alterar depois.`)) return;
       State.meuPalpite.campeao = State._campTemp;
       await Store.savePalpite(State.auth.username, { campeao: State._campTemp });
       State._campTemp = null;
-      toast("Palpite de campeão salvo");
+      toast("Campeão confirmado");
       render();
     };
     root().querySelector("[data-back]").onclick = () => { State.view="home"; State._campTemp=null; render(); };
