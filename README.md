@@ -23,12 +23,14 @@ Em cada jogo a pessoa escolhe como quer palpitar:
 - **Placar exato** — digita o placar. Acertou em cheio = 5 pts; acertou só quem venceu = 2 pts.
 - **Só vencedor** — escolhe vitória de um lado ou empate. Acertou = 2 pts (não vale o bônus do placar exato).
 
-**Atenção:** ao **confirmar** um palpite ele **trava** e não pode mais ser editado (evita mudar depois de ver os outros). O palpite de campeão também trava ao confirmar.
+**Trava no apito:** cada jogo tem um **horário de início**. Você pode salvar e **editar** seu palpite à vontade até esse horário; quando o jogo começa, trava sozinho e não dá mais para mexer. O palpite de campeão pode ser trocado até o admin definir o campeão oficial.
+
+Os horários vêm com valores padrão (horário de Brasília) e são **editáveis no Painel Admin**, jogo a jogo — ajuste para os horários oficiais.
 
 ## Como funciona
 
 - Cada pessoa cria uma conta com **usuário (único) + senha** e dá seus palpites de placar.
-- O ranking é calculado sozinho, com abas: Geral, Brasil e Campeão.
+- O ranking é calculado sozinho, com 4 abas: **Geral** (soma tudo: jogos + campeão), **Completo** (só os jogos), **Brasil** (só jogos do Brasil) e **Campeão**.
 - Os palpites travam automaticamente quando o jogo já tem resultado lançado.
 
 ### Login e senha

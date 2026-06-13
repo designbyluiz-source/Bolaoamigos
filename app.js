@@ -47,6 +47,8 @@
     save:`<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>`,
     lock:`<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`,
     medal:`<path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/>`,
+    edit:`<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/>`,
+    clock:`<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`,
   };
   function icon(name, cls){ return `<svg class="ic ${cls||''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
 
@@ -168,7 +170,8 @@
     resultados: {},
     meuPalpite: null,
     palpites: [],
-    _draft: {},   // rascunho por jogo (antes de confirmar)
+    _draft: {},    // rascunho por jogo (antes de confirmar)
+    _editing: {},  // jogos em modo de edição
   };
 
   function pontuacao() { return Object.assign({}, D.PONTUACAO_PADRAO, State.resultados.pontuacao || {}); }
@@ -176,10 +179,25 @@
   function jogosEfetivos() {
     const edits = State.resultados.edits || {};
     const base = D.JOGOS_BASE.map((j) => Object.assign({}, j, edits[j.id] || {}));
-    const custom = (State.resultados.custom || []).map((j) => Object.assign({ fase: "mata", grupo: "—" }, j));
+    const custom = (State.resultados.custom || []).map((j) => Object.assign({ fase: "mata", grupo: "—" }, j, edits[j.id] || {}));
     return base.concat(custom);
   }
   function jogosDoBrasil() { return jogosEfetivos().filter((j) => j.casa === D.TIME_BRASIL || j.fora === D.TIME_BRASIL); }
+
+  // ----- horário de início / trava -----
+  function inicioISO(j){ return j.inicio || (j.data ? `${j.data}T16:00:00-03:00` : null); }
+  function kickoffMs(j){ const i = inicioISO(j); return i ? Date.parse(i) : Infinity; }
+  function jogoComecou(j){ return Date.now() >= kickoffMs(j); }
+  // "DD/MM · HH:MM" a partir do horário guardado (Brasília)
+  function fmtDataHora(j){
+    const i = inicioISO(j); if(!i) return fmtData(j.data);
+    const [date, time] = i.slice(0,16).split("T");
+    const [y,m,d] = date.split("-");
+    return `${d}/${m} · ${time}`;
+  }
+  function fmtHora(j){ const i = inicioISO(j); return i ? i.slice(11,16) : ""; }
+  // valor para <input type="datetime-local">
+  function inicioLocalInput(j){ const i = inicioISO(j); return i ? i.slice(0,16) : ""; }
 
   /* ============================================================
      PONTUAÇÃO
@@ -371,18 +389,26 @@
   function pickLabel(j, w){ return w==="e" ? "Empate" : w==="c" ? "Vitória: "+j.casa : "Vitória: "+j.fora; }
 
   // conteúdo interno do card (permite re-render isolado ao trocar de modo)
+  function midSaved(j, pj){
+    if (!pj || !pj.tipo) return `<div class="vs"><span class="score-show">–</span></div>`;
+    if (pj.tipo === "vencedor") return `<div class="vs"><span class="pick-w">${pj.w==="e"?"=":icon("check")}</span></div>`;
+    return `<div class="vs"><span class="score-show">${pj.c ?? "–"}</span><span class="x">×</span><span class="score-show">${pj.f ?? "–"}</span></div>`;
+  }
+
   function cardBody(j){
     const real = resultadosReais()[j.id] || {};
     const temReal = real.c != null && real.f != null;
+    const comecou = jogoComecou(j);
+    const bloqueado = temReal || comecou;
     const pj = (State.meuPalpite.jogos || {})[j.id] || {};
-    const confirmado = !!pj.locked;
-    const locked = confirmado || temReal;
+    const confirmado = !!pj.tipo;
+    const editing = !!State._editing[j.id];
     const P = pontuacao();
 
     const head = `
       <div class="top">
         <span class="badge">${j.fase==="grupos"?"Grupo "+j.grupo:(j.rotulo||"Mata-mata")}</span>
-        <span class="when">${icon("calendar")} ${fmtData(j.data)}</span>
+        <span class="when">${icon("clock")} ${fmtDataHora(j)}</span>
       </div>`;
 
     function resultLine(){
@@ -396,20 +422,23 @@
       return `<div class="result-line">Resultado <span class="real">${real.c} × ${real.f}</span> ${map[r.tag]||""}</div>`;
     }
 
-    if (locked){
-      let mid, pick;
-      if (pj.tipo === "vencedor"){
-        mid = `<div class="vs"><span class="pick-w">${pj.w==="e"?"=":icon("check")}</span></div>`;
-        pick = `<div class="picked">${icon("lock")} ${pickLabel(j, pj.w)}</div>`;
-      } else {
-        mid = `<div class="vs"><span class="score-show">${pj.c ?? "–"}</span><span class="x">×</span><span class="score-show">${pj.f ?? "–"}</span></div>`;
-        pick = confirmado ? `<div class="picked">${icon("lock")} Palpite confirmado</div>` : "";
-      }
-      return head + `<div class="teams">${teamCol(j.casa)}${mid}${teamCol(j.fora)}</div>`
-        + (temReal ? resultLine() : pick);
+    // 1) bloqueado: jogo começou ou já tem resultado → só leitura
+    if (bloqueado){
+      const teams = `<div class="teams">${teamCol(j.casa)}${midSaved(j,pj)}${teamCol(j.fora)}</div>`;
+      const lbl = (confirmado && pj.tipo==="vencedor") ? `<div class="picked">Seu palpite: ${pickLabel(j,pj.w)}</div>` : "";
+      const line = temReal ? resultLine() : `<div class="result-line">${icon("lock")} Jogo iniciado — palpites fechados</div>`;
+      return head + teams + lbl + line;
     }
 
-    // ----- interativo -----
+    // 2) já confirmado e não está editando → resumo + botão Editar
+    if (confirmado && !editing){
+      const teams = `<div class="teams">${teamCol(j.casa)}${midSaved(j,pj)}${teamCol(j.fora)}</div>`;
+      const lbl = (pj.tipo==="vencedor") ? `<div class="picked">${icon("check")} ${pickLabel(j,pj.w)}</div>` : `<div class="picked">${icon("check")} Palpite salvo</div>`;
+      const note = `<div class="result-line">Editável até o início (${fmtHora(j)})</div>`;
+      return head + teams + lbl + note + `<button class="btn secondary edit-btn" data-edit>${icon("edit")} Editar palpite</button>`;
+    }
+
+    // 3) interativo (novo palpite ou em edição)
     const d = getDraft(j, pj);
     const seg = `
       <div class="seg bet-seg">
@@ -437,15 +466,16 @@
           ${teamCol(j.fora)}
         </div>`;
     }
-    return head + seg + body + `<button class="btn confirm-btn" data-confirm>${icon("check")} Confirmar palpite</button>`;
+    const txt = confirmado ? "Salvar alteração" : "Confirmar palpite";
+    return head + seg + body + `<button class="btn confirm-btn" data-confirm>${icon("check")} ${txt}</button>`;
   }
 
   function matchCard(j){
     jogoById[j.id] = j;
     const real = resultadosReais()[j.id] || {};
     const temReal = real.c != null && real.f != null;
-    const pj = (State.meuPalpite.jogos || {})[j.id] || {};
-    return `<div class="match ${temReal?'done':''} ${pj.locked?'locked':''}" data-match="${j.id}">${cardBody(j)}</div>`;
+    const bloqueado = temReal || jogoComecou(j);
+    return `<div class="match ${temReal?'done':''} ${bloqueado&&!temReal?'locked':''}" data-match="${j.id}">${cardBody(j)}</div>`;
   }
 
   function wireCard(card){
@@ -469,27 +499,33 @@
       const cEl=card.querySelector('[data-side="c"]'), fEl=card.querySelector('[data-side="f"]');
       d.c = cEl ? cEl.value : d.c; d.f = fEl ? fEl.value : d.f;
     }));
-    // confirmar
+    // editar (reabre o palpite já salvo)
+    const eb = card.querySelector("[data-edit]");
+    if (eb) eb.onclick = ()=>{
+      if (jogoComecou(j)) { toast("O jogo já começou"); return; }
+      State._editing[j.id] = true; delete State._draft[j.id];
+      card.innerHTML = cardBody(j); wireCard(card);
+    };
+    // confirmar / salvar
     const btn = card.querySelector("[data-confirm]");
     if (btn) btn.onclick = async ()=>{
-      let palpite, resumo;
+      if (jogoComecou(j)) { toast("O jogo já começou — não dá mais para palpitar"); render(); return; }
+      let palpite;
       if (d.tipo === "vencedor"){
         if (!d.w) return toast("Escolha quem vence (ou empate)");
-        palpite = { tipo:"vencedor", w:d.w, locked:true };
-        resumo = pickLabel(j, d.w);
+        palpite = { tipo:"vencedor", w:d.w };
       } else {
         const cEl=card.querySelector('[data-side="c"]'), fEl=card.querySelector('[data-side="f"]');
         if (cEl.value==="" || fEl.value==="") return toast("Preencha os dois placares");
         const c=Math.max(0,Math.min(20,parseInt(cEl.value)||0)), f=Math.max(0,Math.min(20,parseInt(fEl.value)||0));
-        palpite = { tipo:"placar", c, f, locked:true };
-        resumo = `${c} × ${f}`;
+        palpite = { tipo:"placar", c, f };
       }
-      if (!confirm(`Confirmar palpite (${resumo})? Não dá para editar depois.`)) return;
       State.meuPalpite.jogos = State.meuPalpite.jogos || {};
       State.meuPalpite.jogos[j.id] = palpite;
       delete State._draft[j.id];
+      State._editing[j.id] = false;
       await Store.savePalpite(State.auth.username, { jogos: State.meuPalpite.jogos });
-      toast("Palpite confirmado");
+      toast("Palpite salvo");
       render();
     };
   }
@@ -559,7 +595,7 @@
         <span><i class="dot ok"></i> Placar exato +${pontuacao().placarExato}</span>
         <span><i class="dot gold"></i> Vencedor +${pontuacao().vencedor}</span>
       </div>
-      <p class="hint" style="margin:0 2px 12px">Em cada jogo você escolhe palpitar o <b>placar exato</b> ou <b>só o vencedor</b>.</p>
+      <p class="hint" style="margin:0 2px 12px">Em cada jogo escolha <b>placar exato</b> ou <b>só o vencedor</b>. Dá para editar até o apito inicial.</p>
       ${tabs}
       ${lista.length ? lista.map(matchCard).join("") : `<div class="empty">Nenhum jogo aqui ainda.</div>`}
       <div class="spacer"></div>
@@ -577,15 +613,15 @@
      ============================================================ */
   function viewCampeao() {
     const escolhido = State.meuPalpite.campeao;
-    const travado = !!State.meuPalpite.campeaoLocked || !!State.resultados.campeao;
     const oficial = State.resultados.campeao;
+    const travado = !!oficial;   // só trava quando o admin define o campeão oficial
     const temp = State._campTemp ?? escolhido;
     const P = pontuacao();
 
     let topo = "";
     if (oficial) topo = `<p>Campeão oficial: <b class="gold-t">${esc(oficial)}</b> ${escolhido===oficial?`${icon("check")} você acertou!`:''}</p>`;
-    else if (escolhido) topo = `<p>${icon("lock")} Seu palpite confirmado: <b>${esc(escolhido)}</b></p>`;
-    else topo = `<p class="muted">Toque numa seleção e confirme. Não dá para mudar depois.</p>`;
+    else if (escolhido) topo = `<p>${icon("check")} Seu palpite: <b>${esc(escolhido)}</b> <span class="muted">(dá para trocar até definir o campeão)</span></p>`;
+    else topo = `<p class="muted">Toque numa seleção e confirme. Você pode trocar enquanto o campeão não for definido.</p>`;
 
     root().innerHTML = topbar() + `
       <div class="section-title">${icon("trophy")} ${D.MODULOS.campeao.nome}</div>
@@ -612,12 +648,10 @@
     const cc = document.getElementById("confCamp");
     if (cc) cc.onclick = async()=>{
       if (!State._campTemp) return;
-      if (!confirm(`Confirmar ${State._campTemp} como campeão? Não dá para mudar depois.`)) return;
       State.meuPalpite.campeao = State._campTemp;
-      State.meuPalpite.campeaoLocked = true;
-      await Store.savePalpite(State.auth.username, { campeao: State._campTemp, campeaoLocked: true });
+      await Store.savePalpite(State.auth.username, { campeao: State._campTemp });
       State._campTemp = null;
-      toast("Campeão confirmado");
+      toast("Palpite de campeão salvo");
       render();
     };
     root().querySelector("[data-back]").onclick = () => { State.view="home"; State._campTemp=null; render(); };
@@ -627,18 +661,17 @@
      TELA: RANKING
      ============================================================ */
   function viewRanking() {
-    const aba = State._rankAba || "completo";
+    const aba = State._rankAba || "geral";
     const rows = State.palpites.map((p)=>({ p, s: calcular(p) }));
-    const keyMap = { completo:"total", brasil:"brasil", campeao:"campeao" };
-    const k = keyMap[aba];
+    const keyMap = { geral:"total", completo:"completo", brasil:"brasil", campeao:"campeao" };
+    const k = keyMap[aba] || "total";
     rows.sort((a,b)=> b.s[k]-a.s[k] || (a.p.nome||a.p.id||"").localeCompare(b.p.nome||b.p.id||""));
+    const abas = [["geral","Geral"],["completo","Completo"],["brasil","Brasil"],["campeao","Campeão"]];
 
     root().innerHTML = topbar() + `
       <div class="section-title">${icon("ranking")} Ranking</div>
       <div class="tabs">
-        <div class="tab ${aba==="completo"?"active":""}" data-aba="completo">Geral</div>
-        <div class="tab ${aba==="brasil"?"active":""}" data-aba="brasil">Brasil</div>
-        <div class="tab ${aba==="campeao"?"active":""}" data-aba="campeao">Campeão</div>
+        ${abas.map(([v,t])=>`<div class="tab ${aba===v?"active":""}" data-aba="${v}">${t}</div>`).join("")}
       </div>
       <div class="card list">
         ${rows.length ? rows.map((row,i)=>{
@@ -646,7 +679,8 @@
           const me = (row.p.id||"") === State.auth.username;
           const pos = i+1, cls = pos<=3?"p"+pos:"";
           const s = row.s;
-          const sub = aba==="completo" ? `${s.exatos} exatos · ${s.parciais} vencedores${s.campeao?' · acertou o campeão':''}`
+          const sub = aba==="geral" ? `${s.completo} dos jogos + ${s.campeao} do campeão`
+                    : aba==="completo" ? `${s.exatos} exatos · ${s.parciais} vencedores`
                     : aba==="brasil" ? `pontos nos jogos do Brasil`
                     : (row.p.campeao ? `palpite: ${esc(row.p.campeao)}` : "sem palpite");
           return `<div class="rank-row ${me?"me":""}">
@@ -695,6 +729,9 @@
         <div class="spacer"></div>
         <div class="row"><input id="nrot" placeholder="Rótulo (ex: Oitavas)" /><input id="ndata" type="date" value="2026-06-28" /></div>
         <div class="spacer"></div>
+        <label>Início (horário de Brasília)</label>
+        <input id="nhora" type="time" value="16:00" />
+        <div class="spacer"></div>
         <button class="btn secondary small" id="addJogo">${icon("plus")} Adicionar jogo</button>
       </div>
 
@@ -702,7 +739,7 @@
       ${jogos.map((j)=>{
         const r = real[j.id] || {};
         return `<div class="admin-match" data-adm="${j.id}">
-          <div class="hd">${j.fase==="grupos"?"Grupo "+j.grupo:(j.rotulo||"Mata-mata")} · ${fmtData(j.data)}</div>
+          <div class="hd">${j.fase==="grupos"?"Grupo "+j.grupo:(j.rotulo||"Mata-mata")}</div>
           <div class="teams">
             ${teamCol(j.casa)}
             <div class="vs">
@@ -712,6 +749,7 @@
             </div>
             ${teamCol(j.fora)}
           </div>
+          <div class="adm-ini"><span>${icon("clock")} Início:</span><input type="datetime-local" data-ini value="${inicioLocalInput(j)}" /></div>
         </div>`;
       }).join("")}
       <div class="spacer"></div>
@@ -728,25 +766,31 @@
       const casa=document.getElementById("nc").value, fora=document.getElementById("nf").value;
       const rotulo=document.getElementById("nrot").value.trim()||"Mata-mata";
       const data=document.getElementById("ndata").value;
+      const hora=document.getElementById("nhora").value||"16:00";
       if (casa===fora) return toast("Escolha times diferentes");
       State.resultados.custom = State.resultados.custom || [];
-      State.resultados.custom.push({ id:"K"+Date.now(), casa, fora, rotulo, data, fase:"mata", grupo:"—" });
+      State.resultados.custom.push({ id:"K"+Date.now(), casa, fora, rotulo, data, inicio:`${data}T${hora}:00-03:00`, fase:"mata", grupo:"—" });
       await Store.saveResultados({ custom: State.resultados.custom });
       toast("Jogo adicionado"); render();
     };
     document.getElementById("salvarResultados").onclick = async()=>{
       const novos = Object.assign({}, real);
+      const novosEdits = JSON.parse(JSON.stringify(State.resultados.edits || {}));
       root().querySelectorAll("[data-adm]").forEach((card)=>{
         const id=card.dataset.adm;
         const c=card.querySelector('[data-r="c"]').value;
         const f=card.querySelector('[data-r="f"]').value;
         if (c===""||f==="") delete novos[id];
         else novos[id]={ c:Math.max(0,parseInt(c)||0), f:Math.max(0,parseInt(f)||0) };
+        // horário de início
+        const ini=card.querySelector('[data-ini]').value;
+        if (ini){ (novosEdits[id]=novosEdits[id]||{}).inicio = `${ini}:00-03:00`; }
       });
       State.resultados.jogos = novos;
-      await Store.saveResultados({ jogos: novos });
+      State.resultados.edits = novosEdits;
+      await Store.saveResultados({ jogos: novos, edits: novosEdits });
       State.palpites = await Store.getAllPalpites();
-      toast("Resultados salvos");
+      toast("Resultados e horários salvos");
     };
   }
   function optTimes(){ return D.TODAS_SELECOES.map((t)=>`<option value="${esc(t)}">${esc(t)}</option>`).join(""); }

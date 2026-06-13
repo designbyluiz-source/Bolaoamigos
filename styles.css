@@ -225,6 +225,11 @@ label{display:block;font-size:13px;color:var(--green-dd);margin:0 0 7px;font-wei
 /* ---------- Admin ---------- */
 .admin-match{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--card);box-shadow:var(--shadow-sm)}
 .admin-match .hd{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:700}
+.adm-ini{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);font-weight:700}
+.adm-ini span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.adm-ini .ic{width:14px;height:14px;vertical-align:0}
+.adm-ini input{padding:8px 10px;font-size:13px}
+.edit-btn{margin-top:12px}
 
 /* ---------- Bottom nav ---------- */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:space-around;

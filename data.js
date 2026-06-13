@@ -76,8 +76,13 @@ const DATAS_GRUPO = {
    Rodada 2: (1 x 3), (4 x 2)
    Rodada 3: (4 x 1), (2 x 3)
    Cada jogo recebe um id estável tipo "C1".."C6".               */
+// Horários de início (faixas, horário de Brasília). São padrões editáveis
+// pelo Painel Admin — ajuste para os horários oficiais de cada jogo.
+const SLOTS = ["13:00", "16:00", "19:00", "22:00"];
+
 function gerarJogosFaseDeGrupos() {
   const jogos = [];
+  const contPorDia = {};
   for (const g of Object.keys(GRUPOS)) {
     const t = GRUPOS[g];
     const d = DATAS_GRUPO[g];
@@ -90,13 +95,18 @@ function gerarJogosFaseDeGrupos() {
       [t[1], t[2], d[2]],
     ];
     confrontos.forEach((c, i) => {
+      const data = c[2];
+      const idx = contPorDia[data] || 0;
+      contPorDia[data] = idx + 1;
+      const hora = SLOTS[idx % SLOTS.length];
       jogos.push({
         id: g + (i + 1),
         grupo: g,
         fase: "grupos",
         casa: c[0],
         fora: c[1],
-        data: c[2],
+        data,
+        inicio: `${data}T${hora}:00-03:00`, // horário de Brasília
       });
     });
   }
