@@ -16,6 +16,15 @@ App de bolão entre amigos (PWA, instala na tela inicial do iPhone). Cada pessoa
 
 Dá pra mudar esses valores no código (`data.js`, `PONTUACAO_PADRAO`).
 
+### Dois modos de palpite por jogo
+
+Em cada jogo a pessoa escolhe como quer palpitar:
+
+- **Placar exato** — digita o placar. Acertou em cheio = 5 pts; acertou só quem venceu = 2 pts.
+- **Só vencedor** — escolhe vitória de um lado ou empate. Acertou = 2 pts (não vale o bônus do placar exato).
+
+**Atenção:** ao **confirmar** um palpite ele **trava** e não pode mais ser editado (evita mudar depois de ver os outros). O palpite de campeão também trava ao confirmar.
+
 ## Como funciona
 
 - Cada pessoa cria uma conta com **usuário (único) + senha** e dá seus palpites de placar.

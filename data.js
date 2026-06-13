@@ -38,6 +38,22 @@ const BANDEIRAS = {
   "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Croácia": "🇭🇷", "Gana": "🇬🇭", "Panamá": "🇵🇦",
 };
 
+// Código ISO (flagcdn) de cada seleção — para mostrar a bandeira como imagem
+const TEAM_ISO = {
+  "México":"mx","África do Sul":"za","Coreia do Sul":"kr","Rep. Tcheca":"cz",
+  "Canadá":"ca","Bósnia e Herz.":"ba","Catar":"qa","Suíça":"ch",
+  "Brasil":"br","Marrocos":"ma","Haiti":"ht","Escócia":"gb-sct",
+  "Estados Unidos":"us","Paraguai":"py","Austrália":"au","Turquia":"tr",
+  "Alemanha":"de","Curaçao":"cw","Costa do Marfim":"ci","Equador":"ec",
+  "Holanda":"nl","Japão":"jp","Suécia":"se","Tunísia":"tn",
+  "Bélgica":"be","Egito":"eg","Irã":"ir","Nova Zelândia":"nz",
+  "Espanha":"es","Cabo Verde":"cv","Arábia Saudita":"sa","Uruguai":"uy",
+  "França":"fr","Senegal":"sn","Iraque":"iq","Noruega":"no",
+  "Argentina":"ar","Argélia":"dz","Áustria":"at","Jordânia":"jo",
+  "Portugal":"pt","RD Congo":"cd","Uzbequistão":"uz","Colômbia":"co",
+  "Inglaterra":"gb-eng","Croácia":"hr","Gana":"gh","Panamá":"pa",
+};
+
 // Datas (rodada por grupo) — fase de grupos, Copa 2026
 // [Rodada1, Rodada2, Rodada3]
 const DATAS_GRUPO = {
@@ -122,6 +138,6 @@ const RESULTADOS_INICIAIS = {
 };
 
 window.BOLAO_DATA = {
-  GRUPOS, BANDEIRAS, JOGOS_BASE, TODAS_SELECOES, TIME_BRASIL,
+  GRUPOS, BANDEIRAS, TEAM_ISO, JOGOS_BASE, TODAS_SELECOES, TIME_BRASIL,
   PONTUACAO_PADRAO, MODULOS, RESULTADOS_INICIAIS,
 };
