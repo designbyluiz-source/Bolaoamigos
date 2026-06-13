@@ -22,10 +22,13 @@
    ============================================================ */
 
 window.SUPABASE_CONFIG = {
-  url: "SEU_PROJECT_URL",        // ex: https://abcdxyz.supabase.co
-  anonKey: "SEU_ANON_PUBLIC_KEY" // chave "anon public"
+  url: "https://rkaxxrcetdperqkpyvjt.supabase.co",
+  anonKey: "sb_publishable_SxoKx8gwhcuabyk5850JFA_6iwdpdzr"
 };
 
-// Senha simples para abrir o Painel Admin (troque por algo seu).
-// Não é segurança forte — só evita que qualquer um edite os resultados.
-window.ADMIN_SENHA = "babes2026";
+// CÓDIGO DE ADMIN.
+// Na tela de "Criar conta" existe um campo opcional "código de admin".
+// Quem criar a conta digitando este código vira ADMIN (vê o painel de
+// resultados). Os outros usuários nem enxergam o painel.
+// Crie a SUA conta usando este código e guarde-o só com você.
+window.ADMIN_CODE = "babes-admin-2026";

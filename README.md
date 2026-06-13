@@ -1,6 +1,6 @@
 # 🏆 Bolão dos Babes — Copa do Mundo 2026
 
-App de bolão entre amigos (PWA, instala na tela inicial do iPhone). Sem dados sensíveis, sem senha — cada pessoa entra só com um nome de usuário.
+App de bolão entre amigos (PWA, instala na tela inicial do iPhone). Cada pessoa entra com **usuário + senha** (a senha é guardada com hash, nunca em texto puro).
 
 ## Os 3 bolões
 
@@ -18,11 +18,22 @@ Dá pra mudar esses valores no código (`data.js`, `PONTUACAO_PADRAO`).
 
 ## Como funciona
 
-- Cada pessoa escolhe um **nome de usuário** e dá seus palpites de placar.
-- Você (admin) lança os **resultados oficiais** no Painel Admin (engrenagem ⚙️).
+- Cada pessoa cria uma conta com **usuário (único) + senha** e dá seus palpites de placar.
 - O ranking é calculado sozinho, com abas: Geral, Brasil e Campeão.
-- O painel admin também deixa **definir o campeão** e **adicionar jogos do mata-mata** (oitavas, quartas, semi, final) conforme forem definidos.
-- Senha do admin: `babes2026` (troque em `firebase-config.js`, campo `ADMIN_SENHA`).
+- Os palpites travam automaticamente quando o jogo já tem resultado lançado.
+
+### Login e senha
+
+- Na tela inicial há "Entrar" e "Criar agora".
+- O usuário tem que ser único (3 a 20 caracteres, letras/números). A senha precisa ter no mínimo 8 caracteres, com letras e números.
+- A senha é guardada com **hash PBKDF2 + salt** — nem você nem o Supabase veem a senha original. Por isso ela **não pode ser recuperada**; se alguém esquecer, é só criar outra conta (ou você apaga a linha do usuário no Supabase).
+
+### Admin (só você vê)
+
+- O Painel Admin (aba 🛠️) **só aparece para contas de administrador**. Os outros usuários nem enxergam.
+- Para virar admin: na tela "Criar conta", preencha o campo **Código de admin** com o valor de `ADMIN_CODE` (em `config.js`, padrão `babes-admin-2026` — troque pelo seu).
+- No admin você **lança os placares**, **define o campeão** e **adiciona jogos do mata-mata** (oitavas, quartas, semi, final).
+- Dica: crie sua conta admin primeiro e guarde o código só com você.
 
 ## Modo local x compartilhado
 
@@ -32,7 +43,7 @@ Dá pra mudar esses valores no código (`data.js`, `PONTUACAO_PADRAO`).
 ### Ativar o modo compartilhado (Supabase grátis)
 
 1. Crie uma conta em <https://supabase.com> e um **novo projeto** (plano gratuito).
-2. Vá em **SQL Editor**, abra o arquivo **`supabase-schema.sql`** desta pasta, cole tudo e clique em **RUN**. Isso cria as tabelas `palpites` e `config` e libera o acesso público (sem login).
+2. Vá em **SQL Editor**, abra o arquivo **`supabase-schema.sql`** desta pasta, cole tudo e clique em **RUN**. Isso cria as tabelas `usuarios`, `palpites` e `config` e libera o acesso.
 3. Vá em **Project Settings → Data API** (ou **API**) e copie:
    - **Project URL**
    - chave **anon public**
@@ -78,7 +89,7 @@ Já incluí um `vercel.json` com os cabeçalhos certos para o service worker e o
 | `index.html` | Página principal |
 | `app.js` | Toda a lógica (telas, palpites, pontuação, admin, ranking) |
 | `data.js` | Grupos, jogos, bandeiras, regras de pontuação |
-| `config.js` | Config do Supabase (url + anonKey) + senha do admin |
+| `config.js` | Config do Supabase (url + anonKey) + código de admin |
 | `supabase-schema.sql` | SQL para criar as tabelas no Supabase |
 | `vercel.json` | Cabeçalhos para deploy na Vercel |
 | `styles.css` | Visual |
@@ -89,3 +100,5 @@ Já incluí um `vercel.json` com os cabeçalhos certos para o service worker e o
 ## Ajustar os jogos
 
 Os 72 jogos da fase de grupos são gerados a partir dos grupos em `data.js`. Se algum confronto, data ou seleção estiver diferente da tabela oficial, é só corrigir em `data.js` (grupos/datas) **ou** pelo Painel Admin no app. Os jogos do mata-mata você adiciona pelo Admin quando os times se definirem.
+
+Alguns resultados já jogados vêm pré-carregados em `data.js` (`RESULTADOS_INICIAIS`): México 2×0 África do Sul, Coreia do Sul 2×1 Rep. Tcheca, Canadá 1×1 Bósnia e Estados Unidos 4×1 Paraguai. Dá pra editar qualquer um pelo Painel Admin.

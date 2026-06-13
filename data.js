@@ -110,7 +110,18 @@ const MODULOS = {
   campeao: { nome: "Bolão do Campeão", emoji: "🏆", desc: "Quem levanta a taça em 2026?" },
 };
 
+// Resultados de jogos que JÁ aconteceram (carregados de base).
+// O admin pode sobrescrever qualquer um pelo painel.
+//  A1 = México x África do Sul | A2 = Coreia do Sul x Rep. Tcheca
+//  B1 = Canadá x Bósnia e Herz. | D1 = Estados Unidos x Paraguai
+const RESULTADOS_INICIAIS = {
+  A1: { c: 2, f: 0 },
+  A2: { c: 2, f: 1 },
+  B1: { c: 1, f: 1 },
+  D1: { c: 4, f: 1 },
+};
+
 window.BOLAO_DATA = {
   GRUPOS, BANDEIRAS, JOGOS_BASE, TODAS_SELECOES, TIME_BRASIL,
-  PONTUACAO_PADRAO, MODULOS,
+  PONTUACAO_PADRAO, MODULOS, RESULTADOS_INICIAIS,
 };
