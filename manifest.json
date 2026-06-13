@@ -1,0 +1,19 @@
+{
+  "name": "Bolão dos Babes",
+  "short_name": "Babes",
+  "description": "Bolão da Copa do Mundo 2026 entre os Babes — placar exato, vencedor e campeão.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
