@@ -180,7 +180,45 @@
     const edits = State.resultados.edits || {};
     const base = D.JOGOS_BASE.map((j) => Object.assign({}, j, edits[j.id] || {}));
     const custom = (State.resultados.custom || []).map((j) => Object.assign({ fase: "mata", grupo: "—" }, j, edits[j.id] || {}));
-    return base.concat(custom);
+    const todos = base.concat(custom);
+    resolverChaveamento(todos);
+    return todos;
+  }
+
+  // Vencedor/perdedor de um jogo a partir do resultado salvo.
+  // Empate é decidido pelo campo `pen` ('c'|'f') definido no admin (pênaltis).
+  function vencedorPerdedor(real) {
+    if (!real || real.c == null || real.f == null) return null;
+    const c = +real.c, f = +real.f;
+    if (c > f) return { v: "c", l: "f" };
+    if (f > c) return { v: "f", l: "c" };
+    if (real.pen === "c") return { v: "c", l: "f" };
+    if (real.pen === "f") return { v: "f", l: "c" };
+    return null; // empate sem definição de quem avançou
+  }
+  function ehPlaceholder(nome) {
+    return /^(Vencedor|Perdedor)\b/.test(String(nome || ""));
+  }
+  // Preenche os confrontos do mata-mata conforme os resultados salvos.
+  // Recalculado a cada render: limpar um resultado reverte o confronto.
+  function resolverChaveamento(jogos) {
+    const B = D.BRACKET || {};
+    const real = resultadosReais();
+    const byId = {}; jogos.forEach((j) => { byId[j.id] = j; });
+    // várias passadas: oitavas → quartas → semis → final/3º
+    for (let pass = 0; pass < 4; pass++) {
+      for (const id of Object.keys(B)) {
+        const jogo = byId[id]; if (!jogo) continue;
+        ["casa", "fora"].forEach((lado) => {
+          const src = B[id][lado]; if (!src) return;
+          const origem = byId[src.jogo]; if (!origem) return;
+          const vp = vencedorPerdedor(real[src.jogo]); if (!vp) return;
+          const lett = src.tipo === "L" ? vp.l : vp.v;
+          const time = lett === "c" ? origem.casa : origem.fora;
+          if (time && !ehPlaceholder(time)) jogo[lado] = time;
+        });
+      }
+    }
   }
   function jogosDoBrasil() { return jogosEfetivos().filter((j) => j.casa === D.TIME_BRASIL || j.fora === D.TIME_BRASIL); }
 
@@ -209,7 +247,7 @@
   // palpite por jogo: { w:'c'|'e'|'f', c, f } — os dois são pontuados:
   // vencedor (+2) e placar exato (+5), independentes.
   function pontosJogo(pj, real, P) {
-    const out = { pts: 0, exato: false, venc: false, tem: !!(pj && (pj.w != null || pj.c != null)), temReal: !!(real && real.c != null && real.f != null) };
+    const out = { pts: 0, exato: false, venc: false, pen: false, tem: !!(pj && (pj.w != null || pj.c != null || pj.dec != null)), temReal: !!(real && real.c != null && real.f != null) };
     if (!pj || !out.temReal) return out;
     const ro = sinal(+real.c, +real.f);
     if (pj.w != null) {
@@ -219,6 +257,10 @@
     if (pj.c != null && pj.f != null && +pj.c === +real.c && +pj.f === +real.f) {
       out.pts += P.placarExato; out.exato = true;
     }
+    // bônus de mata-mata: cravou que o jogo iria para os pênaltis
+    // (empate no tempo normal/prorrogação = decisão por pênaltis)
+    const foiPenalti = +real.c === +real.f;
+    if (pj.dec === "p" && foiPenalti) { out.pts += (P.penalti || 0); out.pen = true; }
     return out;
   }
   function calcular(palpite) {
@@ -226,7 +268,7 @@
     const real = resultadosReais();
     const jogos = jogosEfetivos();
     const brasilIds = new Set(jogosDoBrasil().map((j) => j.id));
-    let completo = 0, brasil = 0, exatos = 0, parciais = 0;
+    let completo = 0, brasil = 0, exatos = 0, parciais = 0, penaltis = 0;
     const pj = (palpite && palpite.jogos) || {};
     jogos.forEach((j) => {
       const r = pontosJogo(pj[j.id], real[j.id], P);
@@ -234,10 +276,11 @@
       if (brasilIds.has(j.id)) brasil += r.pts;
       if (r.exato) exatos++;
       if (r.venc) parciais++;
+      if (r.pen) penaltis++;
     });
     let campeao = 0;
     if (State.resultados.campeao && palpite && palpite.campeao === State.resultados.campeao) campeao = P.campeao;
-    return { completo, brasil, campeao, total: completo + campeao, exatos, parciais };
+    return { completo, brasil, campeao, total: completo + campeao, exatos, parciais, penaltis };
   }
 
   /* ============================================================
@@ -386,9 +429,10 @@
   function teamCol(name){ return `<div class="team">${flagHTML(name,"lg")}<span class="nm">${esc(name)}</span></div>`; }
   const jogoById = {};
   function getDraft(j, pj){
-    if (!State._draft[j.id]) State._draft[j.id] = { c: pj.c ?? "", f: pj.f ?? "", w: pj.w ?? null };
+    if (!State._draft[j.id]) State._draft[j.id] = { c: pj.c ?? "", f: pj.f ?? "", w: pj.w ?? null, dec: pj.dec ?? null };
     return State._draft[j.id];
   }
+  function decLabel(dec){ return dec==="p" ? "Decisão por pênaltis" : dec==="n" ? "Decidido no tempo normal" : ""; }
   function pickLabel(j, w){ return w==="e" ? "Empate" : w==="c" ? "Vitória do "+j.casa : "Vitória do "+j.fora; }
   function midScore(pj){ return `<div class="vs"><span class="score-show">${pj.c ?? "–"}</span><span class="x">×</span><span class="score-show">${pj.f ?? "–"}</span></div>`; }
 
@@ -411,13 +455,15 @@
     function resumoSalvo(){
       const teams = `<div class="teams">${teamCol(j.casa)}${midScore(pj)}${teamCol(j.fora)}</div>`;
       const lbl = pj.w!=null ? `<div class="picked">Quem vence: <b>${pickLabel(j,pj.w)}</b></div>` : "";
-      return teams + lbl;
+      const dec = (j.fase==="mata" && pj.dec) ? `<div class="picked">${icon("trophy")} <b>${decLabel(pj.dec)}</b></div>` : "";
+      return teams + lbl + dec;
     }
     function tagsResultado(){
       const r = pontosJogo(pj, real, P);
       let tags = "";
       if (pj.c!=null) tags += r.exato ? `<span class="tag exato">${icon("check")} Placar +${P.placarExato}</span>` : `<span class="tag zero">${icon("x")} Placar</span>`;
       if (pj.w!=null) tags += r.venc ? `<span class="tag parcial">${icon("check")} Vencedor +${P.vencedor}</span>` : `<span class="tag zero">${icon("x")} Vencedor</span>`;
+      if (j.fase==="mata" && pj.dec==="p") tags += r.pen ? `<span class="tag exato">${icon("check")} Pênaltis +${P.penalti}</span>` : `<span class="tag zero">${icon("x")} Pênaltis</span>`;
       if (!tags) tags = `<span class="tag aberto">Sem palpite</span>`;
       return `<div class="result-line">Resultado <span class="real">${real.c} × ${real.f}</span></div><div class="tags-row">${tags}</div>`;
     }
@@ -456,7 +502,15 @@
           </div>
           ${teamCol(j.fora)}
         </div>
-      </div>`;
+      </div>
+      ${j.fase==="mata" ? `
+      <div class="bet-block">
+        <div class="bet-q">Como será decidido?</div>
+        <div class="dec-opts">
+          <button class="dec-opt ${d.dec==='n'?'on':''}" data-dec="n">${icon("clock")}<span>No tempo normal</span></button>
+          <button class="dec-opt ${d.dec==='p'?'on':''}" data-dec="p">${icon("trophy")}<span>Pênaltis <i>+${P.penalti}</i></span></button>
+        </div>
+      </div>` : ""}`;
     const txt = confirmado ? "Salvar alteração" : "Confirmar palpite";
     return head + body + `<button class="btn confirm-btn" data-confirm>${icon("check")} ${txt}</button>`;
   }
@@ -478,6 +532,10 @@
     card.querySelectorAll("[data-w]").forEach((b)=> b.onclick=()=>{
       syncScore(); d.w = b.dataset.w; card.innerHTML = cardBody(j); wireCard(card);
     });
+    // escolha da decisão (tempo normal x pênaltis) — só mata-mata; clicar de novo desmarca
+    card.querySelectorAll("[data-dec]").forEach((b)=> b.onclick=()=>{
+      syncScore(); d.dec = (d.dec === b.dataset.dec) ? null : b.dataset.dec; card.innerHTML = cardBody(j); wireCard(card);
+    });
     // sincroniza placar digitado no rascunho
     card.querySelectorAll(".score-in").forEach((inp)=> inp.addEventListener("input", syncScore));
     // editar (reabre o palpite já salvo)
@@ -497,7 +555,9 @@
       const c = Math.max(0, Math.min(20, parseInt(d.c) || 0));
       const f = Math.max(0, Math.min(20, parseInt(d.f) || 0));
       State.meuPalpite.jogos = State.meuPalpite.jogos || {};
-      State.meuPalpite.jogos[j.id] = { w: d.w, c, f };
+      const palpite = { w: d.w, c, f };
+      if (j.fase === "mata" && d.dec) palpite.dec = d.dec; // tempo normal x pênaltis
+      State.meuPalpite.jogos[j.id] = palpite;
       delete State._draft[j.id];
       State._editing[j.id] = false;
       await Store.savePalpite(State.auth.username, { jogos: State.meuPalpite.jogos });
@@ -726,6 +786,12 @@
             </div>
             ${teamCol(j.fora)}
           </div>
+          ${j.fase==="mata" ? `<div class="adm-adv"><span>${icon("trophy")} Avançou (se empate):</span>
+            <select data-adv>
+              <option value="">— pelo placar —</option>
+              <option value="c" ${r.pen==="c"?"selected":""}>${esc(j.casa)}</option>
+              <option value="f" ${r.pen==="f"?"selected":""}>${esc(j.fora)}</option>
+            </select></div>` : ""}
           <div class="adm-ini"><span>${icon("clock")} Início:</span><input type="datetime-local" data-ini value="${inicioLocalInput(j)}" /></div>
         </div>`;
       }).join("")}
@@ -757,8 +823,12 @@
         const id=card.dataset.adm;
         const c=card.querySelector('[data-r="c"]').value;
         const f=card.querySelector('[data-r="f"]').value;
+        const advEl=card.querySelector('[data-adv]');
         if (c===""||f==="") delete novos[id];
-        else novos[id]={ c:Math.max(0,parseInt(c)||0), f:Math.max(0,parseInt(f)||0) };
+        else {
+          novos[id]={ c:Math.max(0,parseInt(c)||0), f:Math.max(0,parseInt(f)||0) };
+          if (advEl && advEl.value) novos[id].pen = advEl.value; // quem avançou nos pênaltis
+        }
         // horário de início
         const ini=card.querySelector('[data-ini]').value;
         if (ini){ (novosEdits[id]=novosEdits[id]||{}).inicio = `${ini}:00-03:00`; }

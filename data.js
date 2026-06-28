@@ -127,8 +127,97 @@ function gerarJogosFaseDeGrupos() {
   return jogos;
 }
 
-// Lista base de jogos (fase de grupos). O admin pode adicionar mata-matas.
-const JOGOS_BASE = gerarJogosFaseDeGrupos();
+/* ============================================================
+   FASE MATA-MATA — Copa do Mundo 2026
+   ------------------------------------------------------------
+   Confrontos definidos após a fase de grupos. Horários em
+   horário de Brasília (-03:00). Times com placeholder (ex.
+   "Vencedor Brasil/Japão") são preenchidos conforme avança a
+   competição — basta editar o jogo no Painel Admin.
+   Nomes normalizados p/ casar com as bandeiras:
+   Países Baixos→Holanda, Congo→RD Congo, Bósnia e Herzegovina→Bósnia e Herz.
+   ============================================================ */
+function gerarJogosMataMata() {
+  const m = (id, rotulo, casa, fora, data, hora) => ({
+    id, fase: "mata", grupo: "—", rotulo, casa, fora,
+    data, inicio: `${data}T${hora}:00-03:00`,
+  });
+  return [
+    // ---- 16-avos de final (Round of 32) ----
+    m("M73", "16-avos", "África do Sul", "Canadá", "2026-06-28", "16:00"),
+    m("M74", "16-avos", "Brasil", "Japão", "2026-06-29", "14:00"),
+    m("M75", "16-avos", "Alemanha", "Paraguai", "2026-06-29", "17:30"),
+    m("M76", "16-avos", "Holanda", "Marrocos", "2026-06-29", "22:00"),
+    m("M77", "16-avos", "Costa do Marfim", "Noruega", "2026-06-30", "14:00"),
+    m("M78", "16-avos", "França", "Suécia", "2026-06-30", "18:00"),
+    m("M79", "16-avos", "México", "Equador", "2026-06-30", "22:00"),
+    m("M80", "16-avos", "Inglaterra", "RD Congo", "2026-07-01", "13:00"),
+    m("M81", "16-avos", "Bélgica", "Senegal", "2026-07-01", "17:00"),
+    m("M82", "16-avos", "Estados Unidos", "Bósnia e Herz.", "2026-07-01", "21:00"),
+    m("M83", "16-avos", "Espanha", "Áustria", "2026-07-02", "16:00"),
+    m("M84", "16-avos", "Portugal", "Croácia", "2026-07-02", "20:00"),
+    m("M85", "16-avos", "Suíça", "Argélia", "2026-07-03", "00:00"),
+    m("M86", "16-avos", "Austrália", "Egito", "2026-07-03", "15:00"),
+    m("M87", "16-avos", "Argentina", "Cabo Verde", "2026-07-03", "19:00"),
+    m("M88", "16-avos", "Colômbia", "Gana", "2026-07-03", "22:30"),
+    // ---- Oitavas de final ----
+    m("M89", "Oitavas", "Vencedor Alemanha/Paraguai", "Vencedor França/Suécia", "2026-07-04", "14:00"),
+    m("M90", "Oitavas", "Vencedor África do Sul/Canadá", "Vencedor Holanda/Marrocos", "2026-07-04", "18:00"),
+    m("M91", "Oitavas", "Vencedor Brasil/Japão", "Vencedor Costa do Marfim/Noruega", "2026-07-05", "17:00"),
+    m("M92", "Oitavas", "Vencedor México/Equador", "Vencedor Inglaterra/RD Congo", "2026-07-05", "21:00"),
+    m("M93", "Oitavas", "Vencedor Portugal/Croácia", "Vencedor Espanha/Áustria", "2026-07-06", "16:00"),
+    m("M94", "Oitavas", "Vencedor Estados Unidos/Bósnia e Herz.", "Vencedor Bélgica/Senegal", "2026-07-06", "21:00"),
+    m("M95", "Oitavas", "Vencedor Argentina/Cabo Verde", "Vencedor Austrália/Egito", "2026-07-07", "13:00"),
+    m("M96", "Oitavas", "Vencedor Suíça/Argélia", "Vencedor Colômbia/Gana", "2026-07-07", "17:00"),
+    // ---- Quartas de final (vencedores das oitavas, em ordem) ----
+    m("M97", "Quartas", "Vencedor Oitava 1", "Vencedor Oitava 2", "2026-07-09", "17:00"),
+    m("M98", "Quartas", "Vencedor Oitava 3", "Vencedor Oitava 4", "2026-07-10", "16:00"),
+    m("M99", "Quartas", "Vencedor Oitava 5", "Vencedor Oitava 6", "2026-07-11", "18:00"),
+    m("M100", "Quartas", "Vencedor Oitava 7", "Vencedor Oitava 8", "2026-07-11", "22:00"),
+    // ---- Semifinais ----
+    m("M101", "Semifinal", "Vencedor Quartas 1", "Vencedor Quartas 2", "2026-07-14", "16:00"),
+    m("M102", "Semifinal", "Vencedor Quartas 3", "Vencedor Quartas 4", "2026-07-15", "16:00"),
+    // ---- Disputa de 3º lugar ----
+    m("M103", "3º lugar", "Perdedor Semifinal 1", "Perdedor Semifinal 2", "2026-07-18", "18:00"),
+    // ---- Final ----
+    m("M104", "Final", "Vencedor Semifinal 1", "Vencedor Semifinal 2", "2026-07-19", "16:00"),
+  ];
+}
+
+// Lista base de jogos: fase de grupos + mata-mata. O admin ainda pode
+// editar qualquer jogo ou adicionar avulsos pelo painel.
+const JOGOS_BASE = gerarJogosFaseDeGrupos().concat(gerarJogosMataMata());
+
+/* ============================================================
+   CHAVEAMENTO — quem alimenta cada confronto
+   ------------------------------------------------------------
+   Cada jogo do mata-mata (a partir das oitavas) é alimentado por
+   dois jogos anteriores. tipo "V" = vencedor; "L" = perdedor
+   (usado só na disputa de 3º lugar). Quando o resultado do jogo
+   de origem é salvo, o time já aparece sozinho no confronto seguinte.
+   ============================================================ */
+const BRACKET = {
+  // Oitavas (alimentadas pelos 16-avos)
+  M89: { casa: { jogo: "M75", tipo: "V" }, fora: { jogo: "M78", tipo: "V" } },
+  M90: { casa: { jogo: "M73", tipo: "V" }, fora: { jogo: "M76", tipo: "V" } },
+  M91: { casa: { jogo: "M74", tipo: "V" }, fora: { jogo: "M77", tipo: "V" } },
+  M92: { casa: { jogo: "M79", tipo: "V" }, fora: { jogo: "M80", tipo: "V" } },
+  M93: { casa: { jogo: "M84", tipo: "V" }, fora: { jogo: "M83", tipo: "V" } },
+  M94: { casa: { jogo: "M82", tipo: "V" }, fora: { jogo: "M81", tipo: "V" } },
+  M95: { casa: { jogo: "M87", tipo: "V" }, fora: { jogo: "M86", tipo: "V" } },
+  M96: { casa: { jogo: "M85", tipo: "V" }, fora: { jogo: "M88", tipo: "V" } },
+  // Quartas (alimentadas pelas oitavas, na ordem)
+  M97:  { casa: { jogo: "M89", tipo: "V" }, fora: { jogo: "M90", tipo: "V" } },
+  M98:  { casa: { jogo: "M91", tipo: "V" }, fora: { jogo: "M92", tipo: "V" } },
+  M99:  { casa: { jogo: "M93", tipo: "V" }, fora: { jogo: "M94", tipo: "V" } },
+  M100: { casa: { jogo: "M95", tipo: "V" }, fora: { jogo: "M96", tipo: "V" } },
+  // Semifinais
+  M101: { casa: { jogo: "M97", tipo: "V" }, fora: { jogo: "M98", tipo: "V" } },
+  M102: { casa: { jogo: "M99", tipo: "V" }, fora: { jogo: "M100", tipo: "V" } },
+  // Disputa de 3º lugar (perdedores das semis) e Final (vencedores)
+  M103: { casa: { jogo: "M101", tipo: "L" }, fora: { jogo: "M102", tipo: "L" } },
+  M104: { casa: { jogo: "M101", tipo: "V" }, fora: { jogo: "M102", tipo: "V" } },
+};
 
 // Brasil: jogos do "Bolão do Brasil" = jogos da fase de grupos com o Brasil
 const TIME_BRASIL = "Brasil";
@@ -141,6 +230,7 @@ const PONTUACAO_PADRAO = {
   placarExato: 5,   // acertou o placar exato
   vencedor: 2,      // acertou só quem venceu / empate
   campeao: 10,      // acertou o campeão da Copa
+  penalti: 1,       // (mata-mata) cravou que o jogo iria para os pênaltis
 };
 
 // Configuração dos três módulos / bolões
@@ -163,5 +253,5 @@ const RESULTADOS_INICIAIS = {
 
 window.BOLAO_DATA = {
   GRUPOS, BANDEIRAS, TEAM_ISO, JOGOS_BASE, TODAS_SELECOES, TIME_BRASIL,
-  PONTUACAO_PADRAO, MODULOS, RESULTADOS_INICIAIS,
+  PONTUACAO_PADRAO, MODULOS, RESULTADOS_INICIAIS, BRACKET,
 };

@@ -194,6 +194,13 @@ label{display:block;font-size:13px;color:var(--green-dd);margin:0 0 7px;font-wei
 .win-opt .emp{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid var(--line2);font-size:18px;font-weight:900;color:var(--muted)}
 .win-opt.on{border-color:var(--green);background:#eaf7f0;box-shadow:0 0 0 2px rgba(21,135,90,.25)}
 .win-opt.on .emp{color:var(--green);border-color:var(--green)}
+.dec-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dec-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:13px;cursor:pointer;
+  background:var(--bg);border:1.5px solid var(--line2);color:var(--ink);font-weight:800;font-size:11px;line-height:1.1}
+.dec-opt .ic{width:22px;height:22px;color:var(--muted)}
+.dec-opt i{font-style:normal;color:var(--green);font-weight:900}
+.dec-opt.on{border-color:var(--green);background:#eaf7f0;box-shadow:0 0 0 2px rgba(21,135,90,.25)}
+.dec-opt.on .ic{color:var(--green)}
 
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:0 2px 12px}
 .legend span{display:inline-flex;align-items:center;gap:5px}
@@ -235,6 +242,10 @@ label{display:block;font-size:13px;color:var(--green-dd);margin:0 0 7px;font-wei
 .adm-ini span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .adm-ini .ic{width:14px;height:14px;vertical-align:0}
 .adm-ini input{padding:8px 10px;font-size:13px}
+.adm-adv{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);font-weight:700}
+.adm-adv span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.adm-adv .ic{width:14px;height:14px;vertical-align:0}
+.adm-adv select{flex:1;padding:8px 10px;font-size:13px}
 .edit-btn{margin-top:12px}
 
 /* ---------- Bottom nav ---------- */
