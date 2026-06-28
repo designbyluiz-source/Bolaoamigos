@@ -604,18 +604,34 @@
   /* ============================================================
      TELA: BOLÃO BRASIL / COMPLETO
      ============================================================ */
+  function pontosDe(jogosArr){
+    const P = pontuacao(); const real = resultadosReais(); const pj = (State.meuPalpite.jogos)||{};
+    let s = 0; jogosArr.forEach((j)=>{ s += pontosJogo(pj[j.id], real[j.id], P).pts; });
+    return s;
+  }
   function viewJogos(tipo) {
     const isBrasil = tipo === "brasil";
     let jogos = isBrasil ? jogosDoBrasil() : jogosEfetivos();
     jogos = jogos.slice().sort((a,b)=> kickoffMs(a)-kickoffMs(b) || a.id.localeCompare(b.id));
     const m = D.MODULOS[tipo];
-    const stats = calcular(State.meuPalpite);
-    const pontos = isBrasil ? stats.brasil : stats.completo;
 
-    const dias = [...new Set(jogos.map((j)=>diaBR(j)))].sort();
+    // separa por fase: grupos x mata-mata (no Bolão Completo)
+    const faseSel = State._faseSel || "grupos";   // 'grupos' | 'mata'
+    let escopo = jogos;
+    if (!isBrasil) escopo = jogos.filter((j)=> faseSel==="mata" ? j.fase==="mata" : j.fase!=="mata");
+
+    const pontos = isBrasil ? calcular(State.meuPalpite).brasil : pontosDe(escopo);
+
+    const dias = [...new Set(escopo.map((j)=>diaBR(j)))].sort();
     const filtro = State._filtroDia || "todos";
-    let lista = jogos;
-    if (!isBrasil && filtro!=="todos") lista = jogos.filter((j)=>diaBR(j)===filtro);
+    let lista = escopo;
+    if (!isBrasil && filtro!=="todos") lista = escopo.filter((j)=>diaBR(j)===filtro);
+
+    const faseTabs = isBrasil ? "" : `
+      <div class="phase-tabs">
+        <button class="phase-tab ${faseSel==="grupos"?"on":""}" data-fase="grupos">${icon("globe")} Fase de grupos</button>
+        <button class="phase-tab ${faseSel==="mata"?"on":""}" data-fase="mata">${icon("trophy")} Mata-mata</button>
+      </div>`;
 
     const tabs = isBrasil ? "" : `
       <div class="tabs">
@@ -623,8 +639,12 @@
         ${dias.map((d)=>`<div class="tab ${filtro===d?"active":""}" data-dia="${d}">${fmtData(d)}</div>`).join("")}
       </div>`;
 
+    const subt = isBrasil ? "" : `<div class="phase-sub">${faseSel==="mata"?"Mata-mata — oitavas até a final":"Fase de grupos — todos os 72 jogos"}</div>`;
+
     root().innerHTML = topbar() + `
       <div class="section-title">${icon(MOD_ICON[tipo])} ${m.nome}</div>
+      ${faseTabs}
+      ${subt}
       <div class="kpi"><div class="box"><b>${pontos}</b><span>SEUS PONTOS AQUI</span></div>
         <div class="box"><b>${lista.length}</b><span>JOGOS</span></div></div>
       <div class="legend">
@@ -641,6 +661,7 @@
 
     ligarMatch();
     root().querySelector("[data-back]").onclick = () => { State.view="home"; render(); };
+    root().querySelectorAll("[data-fase]").forEach((e)=> e.onclick=()=>{ State._faseSel=e.dataset.fase; State._filtroDia="todos"; render(); });
     root().querySelectorAll("[data-dia]").forEach((e)=> e.onclick=()=>{ State._filtroDia=e.dataset.dia; render(); });
   }
 
